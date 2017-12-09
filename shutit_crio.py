@@ -59,11 +59,22 @@ fi
     end
   end
 end''')
-		pw = shutit.get_env_pass()
+
+		try:
+			pw = file('secret').read().strip()
+		except IOError:
+			pw = ''
+		if pw == '':
+			shutit.log('''You can get round this manual step by creating a 'secret' with your password: 'touch secret && chmod 700 secret''',level=logging.CRITICAL)
+			pw = shutit.get_env_pass()
+			import time
+			time.sleep(10)
+
 		try:
 			shutit.multisend('vagrant up --provider ' + shutit.cfg['shutit-library.virtualization.virtualization.virtualization']['virt_method'] + " crio1",{'assword for':pw,'assword:':pw},timeout=99999)
 		except NameError:
 			shutit.multisend('vagrant up crio1',{'assword for':pw,'assword:':pw},timeout=99999)
+
 		if shutit.send_and_get_output("""vagrant status 2> /dev/null | grep -w ^crio1 | awk '{print $2}'""") != 'running':
 			shutit.pause_point("machine: crio1 appears not to have come up cleanly")
 
@@ -136,7 +147,7 @@ To get a picture of what has been set up.''',add_final_message=True,level=loggin
 
 
 	def get_config(self, shutit):
-		shutit.get_config(self.module_id,'vagrant_image',default='ubuntu/xenial64')
+		shutit.get_config(self.module_id,'vagrant_image',default='centos/7')
 		shutit.get_config(self.module_id,'vagrant_provider',default='virtualbox')
 		shutit.get_config(self.module_id,'gui',default='false')
 		shutit.get_config(self.module_id,'memory',default='1024')
