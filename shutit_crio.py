@@ -105,22 +105,60 @@ libselinux-devel \
 ostree-devel \
 pkgconfig \
 runc \
-skopeo-containers''')
+skopeo-containers \
+socat''')
 		shutit.send('export GOPATH=~/go')
-		shutit.send('mkdir -p $GOPATH')
-		shutit.send('mkdir -p $GOPATH/src/github.com/kubernetes-incubator')
-		shutit.send('cd $_ # or cd $GOPATH/src/github.com/kubernetes-incubator')
-		shutit.send('git clone https://github.com/kubernetes-incubator/cri-o # or your fork')
+		shutit.send('export PATH=${GOPATH}/bin:${PATH}')
+		#shutit.send('mkdir -p ${GOPATH}/src/github.com/opencontainers')
+		#shutit.send('cd github.com/opencontainers')
+		#shutit.send('git clone https://github.com/opencontainers/runc')
+		#shutit.send('cd runc')
+		#shutit.send('make')
+		#shutit.send('make install')
+		shutit.send('mkdir -p ${GOPATH}/src/github.com/kubernetes-incubator')
+		shutit.send('cd ${GOPATH}/src/github.com/kubernetes-incubator')
+		shutit.send('git clone https://github.com/kubernetes-incubator/cri-o')
 		shutit.send('cd cri-o')
 		shutit.send('make install.tools')
 		shutit.send('make')
-		shutit.send('sudo make install')
-		shutit.pause_point('')
-#Running pods and containers
-#Follow this tutorial to get started with CRI-O. https://github.com/kubernetes-incubator/cri-o/blob/master/tutorial.md
-#Setup CNI networking
-#A proper description of setting up CNI networking is given in the contrib/cni README. But the gist is that you need to have some basic network configurations enabled and CNI plugins installed on your system. https://github.com/kubernetes-incubator/cri-o/blob/master/contrib/cni/README.md
+		shutit.send('make BUILDTAGS=""',note='Avoid seccomp')
+		shutit.send('make install')
+		shutit.send('make install.config')
+		# CNI
+		shutit.send('git clone https://github.com/containernetworking/plugins')
+		shutit.send('cd plugins')
+		shutit.send('./build.sh')
+		shutit.send('mkdir -p /opt/cni/bin /etc/cni/net.d')
+		shutit.send('cp bin/* /opt/cni/bin')
+		shutit.send('curl https://raw.githubusercontent.com/kubernetes-incubator/cri-o/master/contrib/cni/99-loopback.conf > /etc/cni/net.d/99-loopback.conf')
+		shutit.send('curl https://raw.githubusercontent.com/kubernetes-incubator/cri-o/master/contrib/cni/10-crio-bridge.conf > /etc/cni/net.d/10-crio-bridge.conf')
 
+		#Follow this tutorial to get started with CRI-O. https://github.com/kubernetes-incubator/cri-o/blob/master/tutorial.md
+		shutit.send('go get github.com/kubernetes-incubator/cri-tools/cmd/crictl')
+		# CRIO DAEMON
+		shutit.send(r"""sh -c 'echo "[Unit]
+Description=OCI-based implementation of Kubernetes Container Runtime Interface
+Documentation=https://github.com/kubernetes-incubator/cri-o
+
+[Service]
+ExecStart=/usr/local/bin/crio --log-level debug
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target" > /etc/systemd/system/crio.service'""")
+		shutit.send(r"""sed -i 's/registries.*/registries = ["docker.io"/' /etc/crio/crio.conf""")
+		shutit.send('systemctl daemon-reload')
+		shutit.send('systemctl enable crio')
+		shutit.send('systemctl start crio')
+		shutit.send('crictl --runtime-endpoint /var/run/crio/crio.sock info',note='check crio is up')
+		shutit.send('cd $GOPATH/src/github.com/kubernetes-incubator/cri-o')
+		shutit.send('POD_ID=$(crictl runs test/testdata/sandbox_config.json)')
+		shutit.send('crictl inspects --output table $POD_ID')
+
+		shutit.send('crictl pull redis:alpine')
+
+		shutit.pause_point('')
 #Running with kubernetes
 
 #You can run a local version of kubernetes with CRI-O using local-up-cluster.sh:
