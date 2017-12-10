@@ -155,8 +155,11 @@ WantedBy=multi-user.target" > /etc/systemd/system/crio.service'""")
 		shutit.send('cd $GOPATH/src/github.com/kubernetes-incubator/cri-o')
 		shutit.send('POD_ID=$(crictl runs test/testdata/sandbox_config.json)')
 		shutit.send('crictl inspects --output table $POD_ID')
-
 		shutit.send('crictl pull redis:alpine')
+		shutit.send('CONTAINER_ID=$(crictl create $POD_ID /root/go/src/github.com/kubernetes-incubator/cri-o/test/testdata/sandbox_config.json)')
+		shutit.send('crictl start $CONTAINER_ID')
+		shutit.send('crictl inspect $CONTAINER_ID')
+		shutit.pause_point('telnet 10.88.0.2 6379')
 
 		shutit.pause_point('')
 #Running with kubernetes
